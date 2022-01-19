@@ -1,0 +1,421 @@
+kubernetes (k8s)
+
+云计算：
+iaas 基础设施及服务 （阿里云）
+paas 平台及服务       新浪
+saas 软件设施及服务  office365
+
+Apache mesos  开源分布式资源管理框架
+docker swarm  docker 容器化 
+kubetnetes (k8s) 谷歌  10年容器化基础架构  borg   GO语言
+
+特点：
+轻量级 （消耗资源少）
+开源
+弹性伸缩
+负载均衡 ipvs 
+适合人群：软件 测试  运维 软件架构   项目经理
+
+pod k8s管理的最小单元，包含一个或多个容器
+控制器类型
+网络通讯 
+
+k8s集群搭建 
+资源清单 （yaml json）
+pod 生命周期 （***）
+pod 控制器 （各种控制器的特点）
+服务发现 service（svc） 轮询算法 （负载均衡策略） 
+
+存储（PV PVC） 
+存储类型及其各自特点
+服务 有状态和无状态   有状态（数据需要持久化存储） 数据库     docker适合无状态服务
+调度器  原理及pod 调度到合适的节点运行
+
+集群准入机制 
+安全： 认证 鉴权  访问控制  原理及其控制
+
+helm (linux yum软件包管理工具)  安装集群  helm 模板  部署常用附件和插件
+
+kubeadm 默认证书只有一年 （更新k8s集群） kubeadm 源码修改可用时间更久 
+搭建k8s高可用集群
+
+borgmaster 单数 单点故障  
+borglet
+
+etcd go语言   http   raft  wal snapshot store 
+
+k8s  http c/s 
+
+kubelet  kubeproxy container (docker)  
+
+apiserver: 服务访问的统一接口
+scheduler 资源调度
+controller manager 控制副本数量  
+etcd 保存集群信息（持久化）  键值对 
+
+node： kubelet(容器生命周期管理) kubeproxy (写入规则IPVS/iptables 服务映射)
+
+coredns 域名解析  
+dashboard web页面 b/s  
+ingress controller （ingress 7层代理 ）
+federtation  跨集群
+prometheus  k8s集群监控
+elk  k8s日志统一分析平台
+
+pod:
+
+自主式pod 
+控制器管理的pod
+
+
+pod pause容器（根容器）共享网络 存储卷  localhost 访问   pod内容器端口不冲突 
+
+rc  维持副本数  支持等式（标签）
+rs  支持集合 （标签）  新版本代替rc   不支持滚动更新
+deployment  支持滚动更新以及回滚   deployment 创建rs  滚动升级创建新的rs  原先的rs弃用不删除 
+hpa （自动扩缩容）只支持 rs deployment 
+
+statefulset 有状态服务 
+持续化存储
+稳定的网络状态  podname hostname 不变   headless service （没有cluster ip 的service）
+有序部署 有序扩展  running  ready 状态   启动有先后顺序
+有序收缩 有序删除
+
+daemonset 全部或一些node运行一个pod （有且只有一个） 
+监控   日志搜集 
+
+job cronjob
+
+服务发现
+service （ip + 端口） 标签选择器
+
+网络通讯
+所有pod都在一个扁平的网络空间 直接访问  安装网络插件  flannel
+
+同一个pod  localhost访问  共用pause网络
+各pod  overlay network(覆盖网络)
+pod 和service  IPtables  ipvs 
+同主机  docker0 网桥
+跨主机  docker0-flannel0-flanneld
+
+etcd 提供flannel说明：
+etcd  存储管理flannel可分配的ip地址段资源
+监控etcd中每个pod的实际地址，并在内存中建立维护pod节点路由表
+
+service 网络
+pod 网络
+节点网络
+
+k8s安装
+master  node  harbor（私有仓库）  route   koolshare(ssr代理)
+kubeadm 
+源码安装  进程无法自愈
+内核3.10 最好4.44
+关闭交换分区，防止pod调度在虚拟内存中
+
+kubeadm  kubectl   kubelet(设置开机自启动)
+镜像下载  镜像导入
+pod网段10.244.0.0/16  flannel默认网段
+自动颁发证书
+双向认证
+初始化  节点加入集群
+
+harbor 私有仓库搭建 
+svc clusterip (内部)  NodepPort(所有节点开放端口)
+
+
+k8s 资源清单
+yaml json
+
+资源
+ 名称空间级别：  pod rs deployment  statefulset daemonset job cronjob svc ingress  volume csi configmap secret  downwardapi
+ 集群  ：namespace node role
+ 元数据： hpa podtemplate 
+ 
+资源清单（yaml文件格式）
+基本语法：
+不允许使用tab键，只允许使用空格
+缩进空格数没要求，同级对齐
+#注释
+
+支持的数据类型：
+对象：  k/v 键值对
+数组：
+复合类型：  对象和数组结合
+纯量：不可再分
+
+k8s资源清单常用字段
+version api 版本
+kind 资源类型
+metedata 元数据
+
+kubectl get pod  -n namespace 
+kubectl describe pod  -n namespace (查看pod详细信息)
+kubectl log podname -c containername (查看pod内容器日志) pod内多个容器需指定容器，单个容器不需要
+kubectl create -f  yaml文件(创建对象)
+kubectl apply -f  yaml文件 (创建对象)
+
+pod 生命周期
+pause 容器创建
+init C 初始化容器，初始化结束后退出，上一个成功后进行下一个
+main C 主容器  start stop
+探针：
+readness 就绪（服务可用，能提供对外服务）
+liveness 存活 
+
+init c 
+上一个容器成功后进入下一个
+运行成功后退出
+pod重启策略
+
+初始化加载文件数据
+kubectl delete  deployment --all （删除所有的deployment）当前名称空间
+kubectl delete pod --all （删除所有的pod）当前名称空间 
+kubectl delete SVC svc名称
+kubectl get pod -w 
+
+init c (初始化容器在网络和数据卷初始化之后启动，即在pause容器之后，按顺序启动，成功后进入下一个)  幂等状态 pod重启，init重新执行
+kubectl edit pod  podname (修改pod状态)
+
+探针 kubelet对容器进行诊断
+execaction  容器内执行命令，返回状态为0 
+tcpsocketaction tcp 检查 
+httpgetaction    http请求，响应码在 >= 200 <400 ，成功。
+
+kubectl exec podname -it -- /bin/sh (进入pod)  -c (指定容器)
+类似 docker exec -it 容器  /bin/bash
+
+kubectl get pod -o wide 
+kubectl exec podname -it -- rm -rf (pod执行命令)
+
+主容器启动和退出
+
+挂起 pending  镜像下载  等待pod调度
+运行中 至少有一个容器正在运行、重启和启动
+成功 所有的容器正常退出
+失败 至少有一个以非0状态退出
+未知  与调度主机失联
+
+pod：  自主式pod  退出不会被创建；控制器管理的pod会被创建
+控制器类型：
+rc rs 维持pod副本数  支持等式  集合  标签选择器
+deployment  rs  pod  滚动升级回滚   扩缩容  暂停和继续deployment
+job cronjob  批处理任务
+hpa （自动扩缩容）
+daemonset 全部或一些node运行一个pod  新加node会自动创建 （适合：集群存储、日志收集、监控） 有且只有一个  守护进程
+statefulset 启停有先后顺序 稳定的网络状态  持久化存储   
+
+命令式  
+声明式  幂等 重复执行 yaml文件可编辑，重复使用\
+
+kubectl get pod -n namespacename --show-labels  查看pod标签
+rs 删除，原有创建的pod会删除
+kubectl get deployment -n namespacename  
+kubectl get  rs  -n  namespacename
+kubectl get pod  -n namespacename 
+kubectl apply -f deployment.yaml --record (--record 参数可以记录命令，可以方便的查看每次revision的变化，为滚动升级和回滚用)
+
+kubectl scale deployment deploymentname  --replicas= number deployment扩缩容
+副本数扩缩容，不会创建新的rs ;更新镜像会创建新的rs
+
+kubectl set image deployment/deploymentname  容器名称=镜像  更新容器镜像
+kubectl rollout undo  deployment/deploymentname  deployment回滚到上个版本
+kubectl rollout undo  deployment/deploymentname --to-revision=number deployment回滚到指定版本
+kubectl rollout status  deployment/deploymentname  查看deployment状态
+kubectl rollout history   deployment/deploymentname  查看deployment历史
+kubectl rollout pause deployment/deploymentname  暂停deployment更新
+
+元数据的标签与标签选择器的标签要对应，否则会一直重建pod
+
+kubectl get job  查看当前任务
+imagepullbackoff  镜像下载失败
+
+cronjob 重启策略支持never  onfailure
+cronjob 数据库备份  发送邮件
+
+kubectl get cronjob 
+kubectl get job 
+kubectl delete job jobname
+
+service （svc）便签选择器 轮询  自动加载负载转发列表  4层负载
+clusterip 虚拟地址   ip+端口   集群内部访问
+nodeport 每台节点开放一个端口，提供外部访问  大于30000  nodeport 前端添加负载均衡器
+loadbalancer  外部负载均衡器  云供应商
+externalname 
+
+代理模式：
+userspace -- iptables -- ipvs 
+ 
+安装IPVS模块
+ipvsadm -Ln  查看转发规则（svc）
+
+headless service 无头服务  访问域名
+nodeport  节点开放端口，提供外部访问
+externalname 外部流量引入集群内部
+ingress 7层代理
+
+
+ingress-Nginx    
+nodeport 模式
+Nginx配置自动加载
+基于域名  http  https 地址跳转  认证
+kubectl get ingress  查看ingress规则
+kubectl get pod -n ingress-nginx
+
+ingress-haproxy 
+
+configmap 
+kubectl get configmap (cm) 查看configmap信息
+kubectl get  configmap (cm) configmapname -o yaml  以yaml格式查看configmap信息
+kubectl describe cm cmname 
+目录： 文件名为键，文件内容为键值
+文件： 文件名为键，文件内容为键值
+字面值：键名 键值  --from-literal=键名=键值
+
+注入pod环境变量
+设置命令行参数
+存储卷 目录挂载
+configmap  热更新
+
+
+secret 
+加密文件  密码秘钥 token 
+三种类型： serviceaccount（k8s自动管理）   opaque secret (base64加密) pod内密码是铭文  dockerconfigjson (私有仓库认证)
+kubectl get secret -n namespace  查看secret信息
+挂载  环境变量
+
+dockerconfigjson  docker registry (创建私有仓库认证) 创建secret
+
+
+volume
+pv 、pvc
+
+
+配置文件注册中心 
+
+存储卷：
+pod 内容器共享pause根容器的网络 存储卷
+
+hostPath  主机文件 宿主机  节点  文件或目录挂载到容器  （节点文件不一致有影响）
+pod内容器启动需要访问docker的配置文件
+
+emptyDir  空卷  空目录
+nfs  
+
+
+pv 持久化存储卷
+pvc  存储请求
+
+PV访问模式  读写单个  多个只读   多个读写
+回收策略： retain 保留-手动回收  recycle 回收-删除卷内内容  delete 删除
+PV卷状态：
+可用 绑定 释放  失败 
+
+kubectl get PV  查看PV信息
+kubectl delete PV  pvname 删除pv
+kubectl get pvc  查看pvc
+kubectl describe pv pvname 
+kubectl get pod -o wide 
+
+statefulset   pod 域名不变，pod ip会变
+使用headless（无头服务）控制pod域名，域名的FQDN为servicename.namespace.svc.cluster.local
+
+
+创建PV  创建pvc 进行绑定使用
+
+集群调度：
+预选   优选
+
+******************************
+亲和性：
+节点亲和性  
+硬策略 必须  
+软策略 权重 如果满足最好，没有优选其他的
+
+软硬同时使用，先满足硬策略，再去软策略
+
+******************************
+pod亲和性
+硬策略 必须  
+软策略 权重
+kubectl get nodes --show-labels 
+
+******************************
+污点
+容忍
+
+
+定向调度：
+节点名称
+节点标签  标签选择器
+
+k8s 安全机制：
+api server  访问的唯一入口
+认证 鉴权 准入机制
+
+认证：
+http token 字符串  
+http base  用户名和密码  base64加密
+https ca根证书（双向）
+
+
+k8s组件 手动颁发 HTTPS证书 证书 kubeconfig - apiserver
+pod serviceaccount   service-account-token apiserver
+
+鉴权：
+访问资源权限
+
+RBAC  基于角色 
+
+准入机制：插件实现不同功能
+
+helm：
+chart  release   (类似docker的镜像和容器的关系)
+
+
+helm组件：
+helm客户端  负责chart release 创建和管理以及tiller的交互
+tiller服务器  处理helm客户端的请求，与k8s apiserver交互
+
+helm仓库 类似yum 安装需要配置yum仓库
+
+自定义模板
+
+helm list 
+更新 回滚
+
+
+dashboard web页面（k8s）b/s 
+helm 部署k8s web页面
+dashboard 部署应用程序
+
+prometheus 
+grafana
+
+hpa 自动扩缩容  根据cpu  内存  自定义指标 pod实现自动扩缩容
+
+资源限制
+
+日志搜集 elk  elfk    
+
+helm 部署服务
+
+
+kubeaddm  证书有效期为一年
+设置证书时间
+
+
+go中文社区
+源码编译，设置时间
+重新颁发证书
+
+高可用k8s集群：
+解决单点故障  master 单数   3或5个
+初始化加入主节点
+
+haproxy   keepalive 
+vip 
+切换
+
+
+【注】集群组件  集群安装  资源控制器  service   存储  集群调度   helm  证书有效期  高可用集群
